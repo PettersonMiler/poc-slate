@@ -25,6 +25,8 @@ import {
 import { withHistory } from "slate-history";
 import isUrl from "is-url";
 
+import { useForm, Controller } from "react-hook-form";
+
 import "./App.css";
 import { CHARACTERS } from "./characters";
 import { Portal } from "./Portal";
@@ -42,6 +44,17 @@ const initialValue = [
 ];
 
 const App = () => {
+    const { control, handleSubmit } = useForm();
+
+    const onSubmit = (data) => {
+        console.log("onSubmit", data);
+
+        // console.log("PLAIN", Plain.serialize(data.firstName));
+        const dataSerialize = serialize(data.firstName);
+        console.log("serialize", dataSerialize);
+        console.log("deserialize", deserialize(dataSerialize));
+    };
+
     // mention
     const ref = useRef();
     const [target, setTarget] = useState();
@@ -50,7 +63,7 @@ const App = () => {
     const renderElement = useCallback((props) => <Element {...props} />, []);
     // mention
 
-    const [value, setValue] = useState(initialValue);
+    // const [value, setValue] = useState(initialValue);
     const editor = useMemo(
         () => withLinks(withMentions(withReact(withHistory(createEditor())))),
         []
@@ -106,114 +119,154 @@ const App = () => {
         }
     }, [chars.length, editor, index, search, target]);
 
-    const serialize = (nodes) => {
-        console.log("n", nodes);
-        return nodes.map((n) => Node.string(n)).join("\n");
+    const serialize = (nodes) => nodes.map((n) => Node.string(n)).join("\n");
+
+    const deserialize = (string) => {
+        const items = [];
+
+        string.split("\n").map((item) =>
+            items.push({
+                type: "paragraph",
+                children: [
+                    {
+                        text: item,
+                    },
+                ],
+            })
+        );
+
+        return items;
     };
 
-    console.log("serialize", serialize(value));
-
     return (
-        <div className="App">
-            <div className="content">
-                <Slate
-                    editor={editor}
-                    value={value}
-                    // onChange={(value) => setValue(value)}
-                    onChange={(value) => {
-                        setValue(value);
-                        const { selection } = editor;
+        <form onSubmit={handleSubmit(onSubmit)}>
+            <div className="App">
+                <Controller
+                    name="firstName"
+                    control={control}
+                    defaultValue={initialValue}
+                    render={({ onChange, value }) => (
+                        <div className="content">
+                            <Slate
+                                editor={editor}
+                                value={value}
+                                // onChange={(value) => setValue(value)}
+                                onChange={(value) => {
+                                    onChange(value);
+                                    const { selection } = editor;
 
-                        if (selection && Range.isCollapsed(selection)) {
-                            const [start] = Range.edges(selection);
-                            console.log("selection", selection);
-                            const wordBefore = Editor.before(editor, start, {
-                                unit: "word",
-                            });
-                            const before =
-                                wordBefore && Editor.before(editor, wordBefore);
-                            const beforeRange =
-                                before && Editor.range(editor, before, start);
-                            const beforeText =
-                                beforeRange &&
-                                Editor.string(editor, beforeRange);
-                            console.log("beforeText", beforeText);
-                            const beforeMatch =
-                                beforeText && beforeText.match(/^@(\w+)$/);
-                            const after = Editor.after(editor, start);
-                            const afterRange = Editor.range(
-                                editor,
-                                start,
-                                after
-                            );
-                            const afterText = Editor.string(editor, afterRange);
-                            const afterMatch = afterText.match(/^(\s|$)/);
+                                    if (
+                                        selection &&
+                                        Range.isCollapsed(selection)
+                                    ) {
+                                        const [start] = Range.edges(selection);
+                                        console.log("selection", selection);
+                                        const wordBefore = Editor.before(
+                                            editor,
+                                            start,
+                                            {
+                                                unit: "word",
+                                            }
+                                        );
+                                        const before =
+                                            wordBefore &&
+                                            Editor.before(editor, wordBefore);
+                                        const beforeRange =
+                                            before &&
+                                            Editor.range(editor, before, start);
+                                        const beforeText =
+                                            beforeRange &&
+                                            Editor.string(editor, beforeRange);
+                                        console.log("beforeText", beforeText);
+                                        const beforeMatch =
+                                            beforeText &&
+                                            beforeText.match(/^@(\w+)$/);
+                                        const after = Editor.after(
+                                            editor,
+                                            start
+                                        );
+                                        const afterRange = Editor.range(
+                                            editor,
+                                            start,
+                                            after
+                                        );
+                                        const afterText = Editor.string(
+                                            editor,
+                                            afterRange
+                                        );
+                                        const afterMatch =
+                                            afterText.match(/^(\s|$)/);
 
-                            console.log("afterMatch", afterMatch);
+                                        console.log("afterMatch", afterMatch);
 
-                            if (beforeMatch && afterMatch) {
-                                setTarget(beforeRange);
-                                setSearch(beforeMatch[1]);
-                                setIndex(0);
-                                return;
-                            }
-                        }
+                                        if (beforeMatch && afterMatch) {
+                                            setTarget(beforeRange);
+                                            setSearch(beforeMatch[1]);
+                                            setIndex(0);
+                                            return;
+                                        }
+                                    }
 
-                        setTarget(null);
-                    }}
-                >
-                    <Toolbar className="toolbar">
-                        <LinkButton />
-                        {/* <RemoveLinkButton /> */}
-                        <CouponCodeGroup
-                            setTarget={setTarget}
-                            setSearch={setSearch}
-                            setIndex={setIndex}
-                        />
-                    </Toolbar>
-                    <div className="editable">
-                        <Editable
-                            renderElement={renderElement}
-                            onKeyDown={onKeyDown}
-                            placeholder="Enter some text..."
-                        />
-                    </div>
-                    {target && chars.length > 0 && (
-                        <Portal>
-                            <div
-                                ref={ref}
-                                style={{
-                                    top: "-9999px",
-                                    left: "-9999px",
-                                    position: "absolute",
-                                    zIndex: 1,
-                                    padding: "3px",
-                                    background: "white",
-                                    borderRadius: "4px",
-                                    boxShadow: "0 1px 5px rgba(0,0,0,.2)",
+                                    setTarget(null);
                                 }}
                             >
-                                {chars.map((char, i) => (
-                                    <div
-                                        key={char}
-                                        style={{
-                                            padding: "1px 3px",
-                                            borderRadius: "3px",
-                                            background:
-                                                i === index
-                                                    ? "#B4D5FF"
-                                                    : "transparent",
-                                        }}
-                                    >
-                                        {char}
-                                    </div>
-                                ))}
-                            </div>
-                        </Portal>
+                                <Toolbar className="toolbar">
+                                    <LinkButton />
+                                    {/* <RemoveLinkButton /> */}
+                                    <CouponCodeGroup
+                                        setTarget={setTarget}
+                                        setSearch={setSearch}
+                                        setIndex={setIndex}
+                                    />
+                                </Toolbar>
+                                <div className="editable">
+                                    <Editable
+                                        renderElement={renderElement}
+                                        onKeyDown={onKeyDown}
+                                        placeholder="Enter some text..."
+                                    />
+                                </div>
+                                {target && chars.length > 0 && (
+                                    <Portal>
+                                        <div
+                                            ref={ref}
+                                            style={{
+                                                top: "-9999px",
+                                                left: "-9999px",
+                                                position: "absolute",
+                                                zIndex: 1,
+                                                padding: "3px",
+                                                background: "white",
+                                                borderRadius: "4px",
+                                                boxShadow:
+                                                    "0 1px 5px rgba(0,0,0,.2)",
+                                            }}
+                                        >
+                                            {chars.map((char, i) => (
+                                                <div
+                                                    key={char}
+                                                    style={{
+                                                        padding: "1px 3px",
+                                                        borderRadius: "3px",
+                                                        background:
+                                                            i === index
+                                                                ? "#B4D5FF"
+                                                                : "transparent",
+                                                    }}
+                                                >
+                                                    {char}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </Portal>
+                                )}
+                            </Slate>
+                        </div>
                     )}
-                </Slate>
+                />
+                <button type="submit">salvar</button>
             </div>
-        </div>
+        </form>
     );
 };
 
